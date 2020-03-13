@@ -6314,6 +6314,7 @@ class UVData(UVBase):
         remove_dig_gains=True,
         remove_coarse_band=True,
         correct_cable_len=False,
+        correct_van_vleck=False,
         flag_init=True,
         edge_width=80e3,
         start_flag=2.0,
@@ -6359,6 +6360,8 @@ class UVData(UVBase):
             Option to divide out coarse band shape.
         correct_cable_len : bool
             Option to apply a cable delay correction.
+        correct_van_vleck : bool
+            Option to apply a van vleck correction.
         flag_init: bool
             Set to True in order to do routine flagging of coarse channel edges,
             start or end integrations, or the center fine channel of each coarse
@@ -6439,6 +6442,7 @@ class UVData(UVBase):
             remove_dig_gains=remove_dig_gains,
             remove_coarse_band=remove_coarse_band,
             correct_cable_len=correct_cable_len,
+            correct_van_vleck=correct_van_vleck,
             flag_init=flag_init,
             edge_width=edge_width,
             start_flag=start_flag,
@@ -6823,6 +6827,7 @@ class UVData(UVBase):
         remove_dig_gains=True,
         remove_coarse_band=True,
         correct_cable_len=False,
+        correct_van_vleck=False,
         flag_init=True,
         edge_width=80e3,
         start_flag=2.0,
@@ -6991,6 +6996,9 @@ class UVData(UVBase):
             band shape.
         correct_cable_len : bool
             Flag to apply cable length correction. Only used if file_type is
+            'mwa_corr_fits'.
+        correct_van_vleck : bool
+            Flag to apply a van vleck correction. Only used if file_type is
             'mwa_corr_fits'.
         flag_init: bool
             Only used if file_type is 'mwa_corr_fits'. Set to True in order to
@@ -7458,6 +7466,7 @@ class UVData(UVBase):
                     remove_dig_gains=remove_dig_gains,
                     remove_coarse_band=remove_coarse_band,
                     correct_cable_len=correct_cable_len,
+                    correct_van_vleck=correct_van_vleck,
                     flag_init=flag_init,
                     edge_width=edge_width,
                     start_flag=start_flag,
