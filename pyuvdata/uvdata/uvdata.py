@@ -6315,6 +6315,7 @@ class UVData(UVBase):
         remove_coarse_band=True,
         correct_cable_len=False,
         correct_van_vleck=False,
+        cheby_approx=True,
         flag_init=True,
         edge_width=80e3,
         start_flag=2.0,
@@ -6362,6 +6363,9 @@ class UVData(UVBase):
             Option to apply a cable delay correction.
         correct_van_vleck : bool
             Option to apply a van vleck correction.
+        cheby_approx : bool
+            Only used if correct_van_vleck is True. Option to implement the van
+            vleck correction with a chebyshev polynomial approximation.
         flag_init: bool
             Set to True in order to do routine flagging of coarse channel edges,
             start or end integrations, or the center fine channel of each coarse
@@ -6443,6 +6447,7 @@ class UVData(UVBase):
             remove_coarse_band=remove_coarse_band,
             correct_cable_len=correct_cable_len,
             correct_van_vleck=correct_van_vleck,
+            cheby_approx=cheby_approx,
             flag_init=flag_init,
             edge_width=edge_width,
             start_flag=start_flag,
@@ -6828,6 +6833,7 @@ class UVData(UVBase):
         remove_coarse_band=True,
         correct_cable_len=False,
         correct_van_vleck=False,
+        cheby_approx=True,
         flag_init=True,
         edge_width=80e3,
         start_flag=2.0,
@@ -7000,6 +7006,10 @@ class UVData(UVBase):
         correct_van_vleck : bool
             Flag to apply a van vleck correction. Only used if file_type is
             'mwa_corr_fits'.
+        cheby_approx : bool
+            Only used if file_type is 'mwa_corr_fits'. Only used if correct_van_vleck
+            is True. Option to implement the vanvleck correction with a chebyshev
+            polynomial approximation.
         flag_init: bool
             Only used if file_type is 'mwa_corr_fits'. Set to True in order to
             do routine flagging of coarse channel edges, start or end
@@ -7467,6 +7477,7 @@ class UVData(UVBase):
                     remove_coarse_band=remove_coarse_band,
                     correct_cable_len=correct_cable_len,
                     correct_van_vleck=correct_van_vleck,
+                    cheby_approx=cheby_approx,
                     flag_init=flag_init,
                     edge_width=edge_width,
                     start_flag=start_flag,
