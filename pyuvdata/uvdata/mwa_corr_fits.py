@@ -379,7 +379,6 @@ class MWACorrFITS(UVData):
                 self.flag_array[-num_end_flag:, :, :, :, :] = True
             self.flag_array = np.reshape(self.flag_array, shape)
 
-    # @profile
     def van_vleck_correction(self, cheby_approx, data_array_dtype):
         """
         Apply a van vleck correction to the data array.
