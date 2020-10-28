@@ -3845,18 +3845,17 @@ class UVData(UVBase):
             run_check_acceptability=run_check_acceptability,
             strict_uvw_antpos_check=strict_uvw_antpos_check,
         )
-        for other in others:
-            if not issubclass(other.__class__, this.__class__):
-                if not issubclass(this.__class__, other.__class__):
-                    raise ValueError(
-                        "Only UVData (or subclass) objects can be "
-                        "added to a UVData (or subclass) object"
-                    )
-            other.check(
-                check_extra=check_extra,
-                run_check_acceptability=run_check_acceptability,
-                strict_uvw_antpos_check=strict_uvw_antpos_check,
-            )
+        if not issubclass(other.__class__, this.__class__):
+            if not issubclass(this.__class__, other.__class__):
+                raise ValueError(
+                    "Only UVData (or subclass) objects can be "
+                    "added to a UVData (or subclass) object"
+                )
+        other.check(
+            check_extra=check_extra,
+            run_check_acceptability=run_check_acceptability,
+            strict_uvw_antpos_check=strict_uvw_antpos_check,
+        )
 
         if phase_center_radec is not None and unphase_to_drift:
             raise ValueError(
@@ -3870,12 +3869,11 @@ class UVData(UVBase):
                     phase_frame=orig_phase_frame, use_ant_pos=use_ant_pos
                 )
 
-            for other in others:
-                if other.phase_type != "drift":
-                    warnings.warn("Unphasing other UVData object to drift")
-                    other.unphase_to_drift(
-                        phase_frame=orig_phase_frame, use_ant_pos=use_ant_pos
-                    )
+            if other.phase_type != "drift":
+                warnings.warn("Unphasing other UVData object to drift")
+                other.unphase_to_drift(
+                    phase_frame=orig_phase_frame, use_ant_pos=use_ant_pos
+                )
 
         if phase_center_radec is not None:
             if np.array(phase_center_radec).size != 2:
