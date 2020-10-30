@@ -314,8 +314,8 @@ class Mir(UVData):
             object_dict[object_name] = {
                 "object_type": "sidereal",
                 "object_name": object_name,
-                "object_ra": object_ra,
-                "object_dec": object_dec,
+                "object_lon": object_ra,
+                "object_lat": object_dec,
                 "coord_frame": "icrs",  # default for SMA datasets (verify)
                 "coord_epoch": coord_epoch,
             }
