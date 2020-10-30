@@ -1183,7 +1183,7 @@ class UVData(UVBase):
             Use astropy for the calculation of apparent coordiantes (setting this to
             false will instead call NOVAS).
         """
-        if self.multi_source:
+        if self.multi_object:
             pass
         else:
             # So this is actually the easier of the two cases -- just use the object
