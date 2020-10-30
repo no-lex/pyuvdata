@@ -887,7 +887,7 @@ class UVFITS(UVData):
             "WW      ": uvw_array_sec[:, 2],
             "DATE    ": time_array,
             "BASELINE": baselines_use,
-            # "SOURCE  ": np.ones(time_array.shape, dtype=np.float32),
+            "SOURCE  ": (self.object_id_array + 1) if self.multi_object else None,
             "FREQSEL ": np.ones_like(self.time_array, dtype=np.float32),
             "ANTENNA1": self.ant_1_array + 1,
             "ANTENNA2": self.ant_2_array + 1,
@@ -901,7 +901,7 @@ class UVFITS(UVData):
             "WW      ": 1.0,
             "DATE    ": 1.0,
             "BASELINE": 1.0,
-            # "SOURCE  ": 1.0,
+            "SOURCE  ": 1.0,
             "FREQSEL ": 1.0,
             "ANTENNA1": 1.0,
             "ANTENNA2": 1.0,
@@ -914,7 +914,7 @@ class UVFITS(UVData):
             "WW      ": 0.0,
             "DATE    ": tzero,
             "BASELINE": 0.0,
-            # "SOURCE  ": 0.0,
+            "SOURCE  ": 0.0,
             "FREQSEL ": 0.0,
             "ANTENNA1": 0.0,
             "ANTENNA2": 0.0,
@@ -943,7 +943,8 @@ class UVFITS(UVData):
             # Otherwise just use the antenna arrays
             parnames_use.append("BASELINE")
 
-        # TODO Karto: Here's where to add "SOURCE " item, and potentially "FREQSEL "
+        if self.multi_object:
+            parnames_use.append("SOURCE  ")
 
         parnames_use += ["ANTENNA1", "ANTENNA2", "SUBARRAY", "INTTIM  "]
 
@@ -1007,13 +1008,18 @@ class UVFITS(UVData):
         hdu.header["BSCALE  "] = 1.0
         hdu.header["BZERO   "] = 0.0
 
-        hdu.header["OBJECT  "] = self.object_name
+        hdu.header["OBJECT  "] = "MULTI" if self.multi_object else self.object_name
         hdu.header["TELESCOP"] = self.telescope_name
         hdu.header["LAT     "] = self.telescope_location_lat_lon_alt_degrees[0]
         hdu.header["LON     "] = self.telescope_location_lat_lon_alt_degrees[1]
         hdu.header["ALT     "] = self.telescope_location_lat_lon_alt[2]
         hdu.header["INSTRUME"] = self.instrument
         hdu.header["EPOCH   "] = float(self.phase_center_epoch)
+        # TODO: This is hard-coded at the moment for the velocity reference info
+        # for individual sources, but at some point this should be allowed to be
+        # flexible.
+        hdu.header["SPECSYS "] = "TOPOCENT"
+
         if self.phase_center_frame is not None:
             hdu.header["PHSFRAME"] = self.phase_center_frame
 
@@ -1071,19 +1077,21 @@ class UVFITS(UVData):
             self.antenna_positions, longitude
         )
         col2 = fits.Column(name="STABXYZ", format="3D", array=rot_ecef_positions)
+        # col3 = fits.Column(name="ORBPARAM", format="0D", array=Norb)
         # convert to 1-indexed from 0-indexed indicies
-        col3 = fits.Column(name="NOSTA", format="1J", array=self.antenna_numbers + 1)
-        col4 = fits.Column(name="MNTSTA", format="1J", array=mntsta)
-        col5 = fits.Column(name="STAXOF", format="1E", array=staxof)
-        col6 = fits.Column(name="POLTYA", format="1A", array=poltya)
-        col7 = fits.Column(name="POLAA", format="1E", array=polaa)
-        # col8 = fits.Column(name='POLCALA', format='3E', array=polcala)
-        col9 = fits.Column(name="POLTYB", format="1A", array=poltyb)
-        col10 = fits.Column(name="POLAB", format="1E", array=polab)
-        # col11 = fits.Column(name='POLCALB', format='3E', array=polcalb)
-        # note ORBPARM is technically required, but we didn't put it in
-        col_list = [col1, col2, col3, col4, col5, col6, col7, col9, col10]
-
+        col4 = fits.Column(name="NOSTA", format="1J", array=self.antenna_numbers + 1)
+        col5 = fits.Column(name="MNTSTA", format="1J", array=mntsta)
+        col6 = fits.Column(name="STAXOF", format="1E", array=staxof)
+        col7 = fits.Column(name="POLTYA", format="1A", array=poltya)
+        col8 = fits.Column(name="POLAA", format="1E", array=polaa)
+        # col9 = fits.Column(name='POLCALA', format='0E', array=Npcal, Nspws)
+        col10 = fits.Column(name="POLTYB", format="1A", array=poltyb)
+        col11 = fits.Column(name="POLAB", format="1E", array=polab)
+        # col12 = fits.Column(name='POLCALB', format='0E', array=Npcal, Nspws)
+        col_list = [col1, col2, col4, col5, col6, col7, col8, col10, col11]
+        # The commented out entires are up above to help check for consistency with the
+        # UVFITS format. ORBPARAM, POLCALA, and POLCALB are all technically required,
+        # but are all of zero length. Added here to help with debugging.
         if self.antenna_diameters is not None:
             col12 = fits.Column(
                 name="DIAMETER", format="1E", array=self.antenna_diameters
@@ -1117,7 +1125,8 @@ class UVFITS(UVData):
         ant_hdu.header["ARRNAM"] = self.telescope_name
         ant_hdu.header["NO_IF"] = self.Nspws
         ant_hdu.header["DEGPDY"] = self.earth_omega
-        # ant_hdu.header['IATUTC'] = 35.
+        # This is just a statically defined value
+        ant_hdu.header["IATUTC"] = 37.0
 
         # set mandatory parameters which are not supported by this object
         # (or that we just don't understand)
@@ -1141,6 +1150,13 @@ class UVFITS(UVData):
 
         # we always output right handed coordinates
         ant_hdu.header["XYZHAND"] = "RIGHT"
+
+        # At some point, we can fill these in more completely using astropy IERS
+        # utilities, since CASA/AIPS doesn't want to be told what the apparent coords
+        # are, but rather wants to calculate them itself.
+        # ant_hdu.header["RDATE"] = '2020-07-24T16:35:39.144087'
+        # ant_hdu.header["POLARX"] = 0.0
+        # ant_hdu.header["POLARY"] = 0.0
 
         fits_tables = [hdu, ant_hdu]
         # If needed, add the FQ table
@@ -1172,6 +1188,96 @@ class UVFITS(UVData):
             fq_hdu.header["EXTNAME"] = "AIPS FQ"
             fq_hdu.header["NO_IF"] = self.Nspws
             fits_tables.append(fq_hdu)
+
+        # If needed, add the SU table
+        if self.multi_object:
+            fmt_d = "%iD" % self.Nspws
+            fmt_e = "%iE" % self.Nspws
+            fmt_j = "%iJ" % self.Nspws
+
+            int_zeros = np.zeros(self.Nobjects, dtype=np.int)
+            flt_zeros = np.zeros(self.Nobjects, dtype=np.float)
+            zero_arr = np.zeros((self.Nobjects, self.Nspws))
+            sou_ids = np.arange(self.Nobjects) + 1
+            name_arr = np.array(self.object_name)
+            cal_code = ["    "] * self.Nobjects
+            # These are things we need to flip through on a source-by-source basis
+            ra_arr = np.zeros(self.Nobjects, dtype=np.float)
+            app_ra = np.zeros(self.Nobjects, dtype=np.float)
+            dec_arr = np.zeros(self.Nobjects, dtype=np.float)
+            app_dec = np.zeros(self.Nobjects, dtype=np.float)
+            epo_arr = np.zeros(self.Nobjects, dtype=np.float)
+            pm_ra = np.zeros(self.Nobjects, dtype=np.float)
+            pm_dec = np.zeros(self.Nobjects, dtype=np.float)
+            rest_freq = np.zeros((self.Nobjects, self.Nspws), dtype=np.float)
+            for idx in range(self.Nobjects):
+                object_dict = self.object_dict[self.object_name[idx]]
+                # This is a stub for something smarter in the future
+                rest_freq[idx][:] = np.mean(self.freq_array)
+                pm_ra[idx] = 0.0
+                pm_dec[idx] = 0.0
+                if object_dict["object_type"] == "sidereal":
+                    # So here's the deal -- we need all the objects to be in the same
+                    # coordinate frame, although nothing in object_dict forces objects
+                    # to share the same frame. So we want to make sure that everything
+                    # lines up with the coordinate frame listed in phase_center_frame.
+                    ra_arr[idx], dec_arr[idx] = uvutils.translate_sidereal_to_sidereal(
+                        object_dict["object_lon"],
+                        object_dict["object_lat"],
+                        object_dict["coord_frame"],
+                        self.phase_center_frame,
+                        coord_epoch=object_dict["coord_epoch"]
+                        if "coord_epoch" in (object_dict.keys())
+                        else None,
+                        time_array=np.mean(self.time_array),
+                    )
+
+                    epo_arr[idx] = (
+                        object_dict["coord_epoch"]
+                        if "coord_epoch" in (object_dict.keys())
+                        else 2000.0
+                    )
+
+                    app_ra[idx] = np.mean(
+                        self.phase_center_app_ra[self.object_id_array == idx]
+                    )
+
+                    app_dec[idx] = np.mean(
+                        self.phase_center_app_dec[self.object_id_array == idx]
+                    )
+
+            col_list = [
+                fits.Column(name="ID. NO.", format="1J", array=sou_ids),
+                fits.Column(name="SOURCE", format="20A", array=name_arr),
+                fits.Column(name="QUAL", format="1J", array=int_zeros),
+                fits.Column(name="CALCODE", format="4A", array=cal_code),
+                fits.Column(name="IFLUX", format=fmt_e, unit="JY", array=zero_arr),
+                fits.Column(name="QFLUX", format=fmt_e, unit="JY", array=zero_arr),
+                fits.Column(name="UFLUX", format=fmt_e, unit="JY", array=zero_arr),
+                fits.Column(name="VFLUX", format=fmt_e, unit="JY", array=zero_arr),
+                fits.Column(name="FREQOFF", format=fmt_d, unit="HZ", array=zero_arr),
+                fits.Column(name="BANDWIDTH", format="1D", unit="HZ", array=flt_zeros),
+                fits.Column(name="RAEPO", format="1D", unit="DEGREES", array=ra_arr),
+                fits.Column(name="DECEPO", format="1D", unit="DEGREES", array=dec_arr),
+                fits.Column(name="EPOCH", format="1D", unit="YEARS", array=epo_arr),
+                fits.Column(name="RAAPP", format="1D", unit="DEGREES", array=app_ra),
+                fits.Column(name="DECAPP", format="1D", unit="DEGREES", array=app_dec),
+                fits.Column(name="LSRVEL", format=fmt_d, unit="M/SEC", array=zero_arr),
+                fits.Column(name="RESTFREQ", format=fmt_d, unit="HZ", array=rest_freq),
+                fits.Column(name="PMRA", format="1D", unit="DEG/DAY", array=pm_ra),
+                fits.Column(name="PMDEC", format="1D", unit="DEG/DAY", array=pm_dec),
+            ]
+
+            su_hdu = fits.BinTableHDU.from_columns(fits.ColDefs(col_list))
+            su_hdu.header["EXTNAME"] = "AIPS SU"
+            su_hdu.header["NO_IF"] = self.Nspws
+            su_hdu.header["FREQID"] = 1
+            su_hdu.header["VELDEF"] = "RADIO"
+            # TODO: Eventually we want to not have this hardcoded, but pyuvdata at
+            # present does not carry around any velocity information. As per usual,
+            # I (Karto) am tipping my hand on what I might be working on next...
+            su_hdu.header["VELTYP"] = "LSR"
+            fits_tables.append(su_hdu)
 
         # write the file
         hdulist = fits.HDUList(hdus=fits_tables)
