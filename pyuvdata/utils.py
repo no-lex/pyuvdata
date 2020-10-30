@@ -1451,11 +1451,14 @@ def calc_app_coords(
     lot more about it shortly.
     """
     if object_type == "sidereal":
-        icrs_ra, icrs_dec = translate_sidereal_to_icrs(
+        icrs_ra, icrs_dec = translate_sidereal_to_sidereal(
             lon_coord,
             lat_coord,
             coord_frame,
-            coord_epoch=coord_epoch,
+            "icrs",
+            coord_epoch=coord_epoch
+            if isinstance(coord_epoch, str)
+            else ("J%f" % coord_epoch),
             time_array=time_array,
         )
         app_ra, app_dec = translate_icrs_to_app(
@@ -1525,13 +1528,20 @@ def translate_ephem_to_app():
 
     This is a thing that does not yet exist.
     """
+    # TODO: Karto needs to introduce some optional dependency pieces here.
+    # Don't let him slack off!
     raise NotImplementedError("Support for solar-system objects not available (yet).")
 
     return None, None
 
 
-def translate_sidereal_to_icrs(
-    lon_coord, lat_coord, coord_frame, coord_epoch=None, time_array=None,
+def translate_sidereal_to_sidereal(
+    lon_coord,
+    lat_coord,
+    in_coord_frame,
+    out_coord_frame,
+    coord_epoch=None,
+    time_array=None,
 ):
     """
     Translate a given set of coordinates from a specified frame into ICRS.
@@ -1569,11 +1579,11 @@ def translate_sidereal_to_icrs(
 
     Returns
     -------
-    icrs_ra : float or ndarray of floats
-        ICRS right ascension coordinates, in units of radians. Output will be an ndarray
+    new_lat : float or ndarray of floats
+        Longitudinal coordinates, in units of radians. Output will be an ndarray
         if any inputs were, with shape (Ncoords,) or (Ntimes,), depending on inputs.
-    icrs_dec : float or ndarray of floats
-        ICRS declination coordinates, in units of radians. Output will be an ndarray
+    new_lon : float or ndarray of floats
+        Latidudinal coordinates, in units of radians. Output will be an ndarray
         if any inputs were, with shape (Ncoords,) or (Ntimes,), depending on inputs.
     """
     # Make sure that the inputs are sensible
@@ -1600,14 +1610,18 @@ def translate_sidereal_to_icrs(
 
     coord_object = SkyCoord(
         (np.repeat(lon_coord, len(time_array)) if rep_crds else lon_coord) * units.rad,
-        (np.repeat(lat_coord, len(time_array)) if rep_crds else lon_coord) * units.rad,
-        frame=coord_frame,
-        equinox=coord_epoch,
-        obstime=np.repeat(time_array, len(lon_coord)) if rep_time else time_array,
+        (np.repeat(lat_coord, len(time_array)) if rep_crds else lat_coord) * units.rad,
+        frame=in_coord_frame,
+        equinox=coord_epoch if isinstance(coord_epoch, str) else ("J%f" % coord_epoch),
+        obstime=Time(
+            np.repeat(time_array, len(lon_coord)) if rep_time else time_array,
+            scale="utc",
+            format="jd",
+        ),
     )
 
-    new_coord = coord_object.transform_to("icrs")
-    return new_coord.ra.rad, new_coord.dec.rad
+    new_coord = coord_object.transform_to(out_coord_frame)
+    return new_coord.spherical.lon.rad, new_coord.spherical.lat.rad
 
 
 def translate_icrs_to_app(
