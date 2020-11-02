@@ -1245,6 +1245,10 @@ class UVFITS(UVData):
                     app_dec[idx] = np.mean(
                         self.phase_center_app_dec[self.object_id_array == idx]
                     )
+                ra_arr *= 180.0 / np.pi
+                dec_arr *= 180.0 / np.pi
+                app_ra *= 180.0 / np.pi
+                app_dec *= 180.0 / np.pi
 
             col_list = [
                 fits.Column(name="ID. NO.", format="1J", array=sou_ids),
