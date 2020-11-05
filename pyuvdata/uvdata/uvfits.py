@@ -115,14 +115,12 @@ class UVFITS(UVData):
                 bl_input_array
             )
 
-        # check for multi source files
+        # check for multi source files. NOW SUPPORTED, W00T!
         if "SOURCE" in vis_hdu.data.parnames:
+            self._set_multi_object()
             source = vis_hdu.data.par("SOURCE")
-            if len(set(source)) > 1:
-                raise ValueError(
-                    "This file has multiple sources. Only single "
-                    "source observations are supported."
-                )
+            self.Nobjects = len(set(source))
+            self.object_id_array = source.astype(np.int)
 
         # get self.baseline_array using our convention
         self.baseline_array = self.antnums_to_baseline(
@@ -523,6 +521,9 @@ class UVFITS(UVData):
 
             self.vis_units = vis_hdr.pop("BUNIT", "UNCALIB")
             self.phase_center_epoch = vis_hdr.pop("EPOCH", None)
+            # It's not clear that this should default to None - PHSFRAME does not seem
+            # to be a standard UVFITS keyword, and it _looks_ like CASA/AIPS defaults
+            # to FK5 when this info is missing. Needs further investigation...
             self.phase_center_frame = vis_hdr.pop("PHSFRAME", None)
 
             self.extra_keywords = uvutils._get_fits_extra_keywords(
@@ -639,6 +640,70 @@ class UVFITS(UVData):
             self._get_parameter_data(
                 vis_hdu, run_check_acceptability, background_lsts=background_lsts
             )
+            # If we find the source attribute in the FITS random paramter list,
+            # the multi_object attribute will be set to True, and we should also
+            # expect that there must be an AIPS SU table.
+            if self.multi_object:
+                su_hdu = hdu_list[hdunames["AIPS SU"]]
+                # We should have as many entries in the AIPS SU header as we have
+                # unique entries in the SOURCES random paramter (checked in the call
+                # to get_parameter_data above)
+                assert len(su_hdu.data) == self.Nobjects
+
+                # Set up these arrays so we can assign values to them
+                self.phase_center_app_ra = np.zeros(self.Nblts)
+                self.phase_center_app_dec = np.zeros(self.Nblts)
+
+                object_dict = {}
+                idx_dict = {}
+                self.object_name = []
+
+                # Alright, we are off to the races!
+                for idx in range(self.Nobjects):
+                    # Grab the indv source entry
+                    sou_info = su_hdu.data[idx]
+                    sou_id = sou_info["ID. NO."]
+                    sou_name = sou_info["SOURCE"]
+                    self.object_name.append(sou_name)
+                    sou_ra = sou_info["RAEPO"] * (np.pi / 180.0)
+                    sou_dec = sou_info["DECEPO"] * (np.pi / 180.0)
+                    sou_epoch = sou_info["EPOCH"]
+                    sou_frame = "fk5"
+
+                    # Okay, now that we have all the source info, we should calculate
+                    # app coords for the source, since we'll want to use those for our
+                    # baseline calculations
+                    app_ra, app_dec = uvutils.calc_app_coords(
+                        sou_ra,
+                        sou_dec,
+                        sou_frame,
+                        coord_epoch=sou_epoch,
+                        object_type="sidereal",
+                        telescope_lat=self.telescope_location_lat_lon_alt[0],
+                        telescope_lon=self.telescope_location_lat_lon_alt[1],
+                        telescope_alt=self.telescope_location_lat_lon_alt[2],
+                        time_array=self.time_array[self.object_id_array == sou_id],
+                    )
+
+                    self.phase_center_app_ra[self.object_id_array == sou_id] = app_ra
+                    self.phase_center_app_dec[self.object_id_array == sou_id] = app_dec
+
+                    idx_dict[sou_id] = idx
+                    object_dict[sou_name] = {
+                        "object_type": "sidereal",
+                        "object_lon": sou_ra,
+                        "object_lat": sou_dec,
+                        "object_frame": sou_frame,
+                        "object_epoch": sou_epoch,
+                    }
+                self.object_dict = object_dict
+                # Now that we've read in the sources, we need to remap object_id_array
+                # so that it's zero indexed. UVFITS is 1-indexed, although technically,
+                # the numbers _could_ be completely out of order/assigned arbitrary int
+                # values
+                self.object_id_array = np.array(
+                    [idx_dict[idx] for idx in self.object_id_array], dtype=np.int
+                )
 
             if not read_data:
                 # don't read in the data. This means the object is a metadata
