@@ -338,8 +338,8 @@ class Mir(UVData):
         self.phase_center_frame = "icrs"
 
         # Fill in the apparent coord calculations
-        self.phase_center_app_ra = mir_data.in_data["rar"][bl_in_maparr[sb_screen]]
-        self.phase_center_app_dec = mir_data.in_data["decr"][bl_in_maparr[sb_screen]]
+        self.phase_center_app_ra = mir_data.in_data["ara"][bl_in_maparr[sb_screen]]
+        self.phase_center_app_dec = mir_data.in_data["adec"][bl_in_maparr[sb_screen]]
 
         self.antenna_diameters = np.zeros(self.Nants_telescope) + 6
         self.blt_order = ("time", "baseline")
