@@ -1873,7 +1873,7 @@ def translate_icrs_to_app(
                     "GKK",  # Catalog ID, fixed for now
                     0,  # Star ID number, fixed for now
                     ra_coord[idx] * (12.0 / np.pi),  # RA in hours
-                    dec_coord[idx],  # Dec in deg
+                    dec_coord[idx] * (180.0 / np.pi),  # Dec in deg
                     pm_ra[idx] if (pm_ra is not None) else 0.0,  # Proper motion RA
                     pm_dec[idx] if (pm_dec is not None) else 0.0,  # Proper motion Dec
                     parallax[idx] if (parallax is not None) else 0.0,  # Parallax
@@ -1885,7 +1885,7 @@ def translate_icrs_to_app(
                     "GKK",  # Catalog ID, fixed for now
                     0,  # Star ID number, fixed for now
                     ra_coord * (12.0 / np.pi),  # RA in hours
-                    dec_coord,  # Dec in deg
+                    dec_coord * (180.0 / np.pi),  # Dec in deg
                     pm_ra if (pm_ra is not None) else 0.0,  # Proper motion RA
                     pm_dec if (pm_dec is not None) else 0.0,  # Proper motion Dec
                     parallax if (parallax is not None) else 0.0,  # Parallax
